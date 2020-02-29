@@ -44,7 +44,11 @@ namespace CSGO_Scapping
                         .Split('.');
 
                     var intPrice = int.Parse(_price[0]);
-                    skins.Add(new Skin { Name = skinName[i].InnerHtml, Price = intPrice, sales = 0, promedio = 0, dolar = 0, obs = "", SalesSkins = new List<SalesSkin>() });
+
+                    if (!(skins.Any(x => x.Name == skinName[i].InnerHtml && x.Price == intPrice)))
+                    {
+                        skins.Add(new Skin { Name = skinName[i].InnerHtml,Price = intPrice, sales = 0, promedio = 0, dolar = 0, obs = "", SalesSkins = new List<SalesSkin>() });
+                    }
                 }
             }
 
@@ -65,12 +69,12 @@ namespace CSGO_Scapping
                         foreach (var sale in result.data.sales)
                         {
                             sale.price = sale.price.Trim('0').Replace('.', ',');
-                            sale.decimalPrice = decimal.Parse(sale.price) * (decimal)0.908;
 
                             if(sale.price[sale.price.Length - 1] == ',')
                             {
                                 sale.price = sale.price.Replace(",", string.Empty);
                             }
+                            sale.decimalPrice = decimal.Parse(sale.price) * (decimal)0.908;
 
                             skin.SalesSkins.Add(sale);
                         }
@@ -84,10 +88,12 @@ namespace CSGO_Scapping
 
             foreach (var skin in skins)
             {
+                var promedioVenta = (decimal)0;
                 var promedio = (decimal)0;
                 foreach (var sale in skin.SalesSkins)
                 {
-                    promedio = promedio + sale.decimalPrice;
+                    promedioVenta += decimal.Parse(sale.price);
+                    promedio += sale.decimalPrice;
                     DateTime dtDateTime = new DateTime(1970, 1, 1, 0, 0, 0, 0, System.DateTimeKind.Utc);
                     dtDateTime = dtDateTime.AddSeconds(sale.sold_at).ToLocalTime();
 
@@ -99,6 +105,7 @@ namespace CSGO_Scapping
 
                 if (skin.SalesSkins.Count > 0)
                 {
+                    skin.promedioVenta = Math.Round((promedioVenta / skin.SalesSkins.Count), 2);
                     skin.promedio = Math.Round((promedio / skin.SalesSkins.Count), 2);
                     skin.dolar = Math.Round((skin.Price / skin.promedio), 2);
                 }
@@ -112,27 +119,28 @@ namespace CSGO_Scapping
             var wb = new XLWorkbook();
             var ws = wb.Worksheets.Add("Skins en venta");
 
-            var headers = new List<string> { "Skin", "Precio AR$", "Promedio U$D", "Precio por dolar", "Cant. Ventas en 15 días", "Observaciones" };
+            var headers = new List<string> { "Skin", "Precio AR$", "Promedio U$D", "U$D a recibir", "Precio por dolar", "Cant. Ventas en 15 días", "Observaciones" };
 
             for(var i = 0; i < skins.Count; i++)
             {
                 ws.Cell(i + 2, 1).Value = skins[i].Name;
                 ws.Cell(i + 2, 2).Value = skins[i].Price;
-                ws.Cell(i + 2, 3).Value = skins[i].promedio;
-                ws.Cell(i + 2, 4).Value = skins[i].dolar;
-                ws.Cell(i + 2, 5).Value = skins[i].sales;
-                ws.Cell(i + 2, 6).Value = skins[i].obs;
+                ws.Cell(i + 2, 3).Value = skins[i].promedioVenta;
+                ws.Cell(i + 2, 4).Value = skins[i].promedio;
+                ws.Cell(i + 2, 5).Value = skins[i].dolar;
+                ws.Cell(i + 2, 6).Value = skins[i].sales;
+                ws.Cell(i + 2, 7).Value = skins[i].obs;
                 ws.Cell($"A{i + 2}").Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
                 if(skins[i].dolar == 0)
                 {
-                    for (var j = 1; j < 7; j++)
+                    for (var j = 1; j <= headers.Count; j++)
                     {
                         ws.Cell(i + 2, j).Style.Fill.BackgroundColor = XLColor.FromArgb(249, 81, 81);
                     }
                 }
                 else if (skins[i].dolar < 65)
                 {
-                    for(var j = 1; j < 7; j++)
+                    for(var j = 1; j <= headers.Count; j++)
                     {
                         ws.Cell(i + 2, j).Style.Fill.BackgroundColor = XLColor.FromArgb(255, 240, 124);
                     }
